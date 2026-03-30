@@ -1,10 +1,10 @@
-const CACHE_NAME = 'chess-timer-v2.4';
+const CACHE_NAME = 'chess-timer-v2.5';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  './icon-192.jpg',
-  './icon-512.jpg'
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {
