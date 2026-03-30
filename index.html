@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>Chess Timer | PWA</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-dark: #0a0a1a;
+      --surface: #14142b;
+      --primary: #e0a500;
+      --text: #f0f0f0;
+      --text-muted: #aaa;
+      --card: #20203a;
+      --danger: #e34d4d;
+      --success: #4caf50;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      transition: background 0.2s;
+    }
+
+    body.light {
+      --bg-dark: #f5f3ef;
+      --surface: #ffffff;
+      --card: #eae6df;
+      --text: #2c2c2c;
+      --text-muted: #666;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header – visible by default, hidden during game */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      z-index: 20;
+    }
+    .game-active .header {
+      display: none;
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 1.4rem;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      font-weight: 600;
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 40px;
+      cursor: pointer;
+    }
+    .nav-btn.active {
+      background: var(--primary);
+      color: #14142b;
+    }
+
+    .theme-toggle {
+      background: var(--card);
+      border: none;
+      font-size: 1.3rem;
+      cursor: pointer;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Setup panel – visible by default, hidden during game */
+    .setup-panel {
+      background: var(--surface);
+      padding: 12px 15px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .game-active .setup-panel {
+      display: none;
+    }
+
+    .preset-btn {
+      background: var(--card);
+      border: none;
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .preset-btn.active-preset {
+      background: var(--primary);
+      color: #14142b;
+    }
+
+    .custom-input {
+      background: var(--card);
+      border: 1px solid var(--text-muted);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 24px;
+      width: 80px;
+      text-align: center;
+    }
+
+    .increment-group, .zero-chk {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card);
+      padding: 4px 12px;
+      border-radius: 32px;
+    }
+
+    /* Game controls – visible by default, hidden during game */
+    .game-controls {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 15px;
+      background: var(--surface);
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+    .game-active .game-controls {
+      display: none;
+    }
+
+    .ctrl-btn {
+      background: var(--card);
+      border: none;
+      padding: 10px 24px;
+      border-radius: 40px;
+      font-weight: bold;
+      font-size: 1rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .ctrl-btn.start { background: var(--success); color: white; }
+    .ctrl-btn.reset { background: var(--danger); color: white; }
+
+    /* TIMER CONTAINER – takes all remaining space when controls hidden */
+    .timers-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-dark);
+    }
+    /* When game active, the container expands to full height because siblings are hidden */
+    .game-active .timers-container {
+      flex: 1;
+    }
+
+    .timer-half {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+      position: relative;
+    }
+
+    .player-label {
+      font-size: 1.8rem;
+      font-weight: 500;
+      margin-bottom: 0.75rem;
+      opacity: 0.8;
+    }
+
+    .timer-display {
+      font-size: 5rem;
+      font-weight: 700;
+      font-family: 'Fira Mono', 'Courier New', monospace;
+      letter-spacing: 4px;
+      background: rgba(0,0,0,0.25);
+      padding: 0.2rem 1rem;
+      border-radius: 60px;
+    }
+
+    .active-glow {
+      box-shadow: inset 0 0 0 4px var(--primary), 0 0 20px rgba(224,165,0,0.4);
+    }
+
+    /* History view */
+    .view {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+    }
+    .view.active {
+      display: flex;
+    }
+
+    .history-header {
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .sort-select {
+      background: var(--card);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: none;
+      color: var(--text);
+    }
+
+    .history-card {
+      background: var(--card);
+      margin: 10px;
+      padding: 14px;
+      border-radius: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .winner-badge {
+      background: var(--primary);
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-weight: bold;
+    }
+
+    .empty-history {
+      text-align: center;
+      margin-top: 60px;
+      opacity: 0.6;
+    }
+
+    @media (max-width: 600px) {
+      .timer-display { font-size: 3rem; }
+      .player-label { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="header">
+    <div class="logo">♜ CHESS TIMER</div>
+    <div class="nav-buttons">
+      <button class="nav-btn" data-view="game">Game</button>
+      <button class="nav-btn" data-view="history">History</button>
+    </div>
+    <button class="theme-toggle" id="themeToggle">🌙</button>
+  </div>
+
+  <!-- Game View -->
+  <div id="gameView" class="view active">
+    <div class="setup-panel" id="setupPanel">
+      <button class="preset-btn" data-preset="5">5 min</button>
+      <button class="preset-btn" data-preset="10">10 min</button>
+      <button class="preset-btn" data-preset="15">15 min</button>
+      <button class="preset-btn" data-preset="20">20 min</button>
+      <input type="number" id="customMinutes" placeholder="min" class="custom-input" min="0" max="180" value="10">
+      <div class="zero-chk">
+        <input type="checkbox" id="zeroStartCheck"> <label>Start from 0</label>
+      </div>
+      <div class="increment-group">
+        <input type="checkbox" id="incEnable"> <span>+ inc</span>
+        <input type="number" id="incSeconds" value="5" min="0" max="60" class="custom-input" style="width:60px"> sec
+      </div>
+      <button id="applySettingsBtn" class="ctrl-btn" style="background: var(--primary);">Apply</button>
+    </div>
+
+    <div class="timers-container" id="timersContainer">
+      <div id="player1Area" class="timer-half" data-player="1">
+        <div class="player-label">⚫ PLAYER 1</div>
+        <div class="timer-display" id="timer1">00:00</div>
+      </div>
+      <div id="player2Area" class="timer-half" data-player="2">
+        <div class="player-label">⚪ PLAYER 2</div>
+        <div class="timer-display" id="timer2">00:00</div>
+      </div>
+    </div>
+
+    <div class="game-controls" id="gameControls">
+      <button id="startBtn" class="ctrl-btn start">▶ Start</button>
+      <button id="pauseBtn" class="ctrl-btn">⏸ Pause</button>
+      <button id="resetBtn" class="ctrl-btn reset">⟳ Reset</button>
+    </div>
+  </div>
+
+  <!-- History View -->
+  <div id="historyView" class="view">
+    <div class="history-header">
+      <h3>Match History</h3>
+      <select id="sortHistory" class="sort-select">
+        <option value="date_desc">Newest first</option>
+        <option value="date_asc">Oldest first</option>
+        <option value="time_used">Shortest game</option>
+      </select>
+    </div>
+    <div id="historyList" class="history-list">
+      <div class="empty-history">No games recorded yet.<br>Finish a match to save.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- IndexedDB ----------
+  const DB_NAME = "ChessTimerDB";
+  const DB_VERSION = 1;
+  let db = null;
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = () => reject(request.error);
+      request.onupgradeneeded = (e) => {
+        const dbEv = e.target.result;
+        if (!dbEv.objectStoreNames.contains("games")) {
+          const store = dbEv.createObjectStore("games", { keyPath: "id", autoIncrement: true });
+          store.createIndex("date", "date");
+        }
+      };
+      request.onsuccess = () => { db = request.result; resolve(db); };
+    });
+  }
+
+  async function saveGameRecord(record) {
+    if (!db) await openDB();
+    const tx = db.transaction(["games"], "readwrite");
+    tx.objectStore("games").add(record);
+    return tx.complete;
+  }
+
+  async function getAllGames() {
+    if (!db) await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(["games"], "readonly");
+      const all = tx.objectStore("games").getAll();
+      all.onsuccess = () => resolve(all.result || []);
+      all.onerror = () => resolve([]);
+    });
+  }
+
+  // ---------- LocalStorage ----------
+  function saveSettings(settings) {
+    localStorage.setItem("chessTimerSettings", JSON.stringify(settings));
+  }
+  function loadSettings() {
+    const def = { preset: "10", customMin: 10, zeroStart: false, incEnabled: false, incSec: 5, theme: "dark" };
+    try {
+      const saved = JSON.parse(localStorage.getItem("chessTimerSettings"));
+      if (saved) return { ...def, ...saved };
+    } catch(e) {}
+    return def;
+  }
+
+  // ---------- Game State ----------
+  let player1TimeMs = 10 * 60 * 1000;
+  let player2TimeMs = 10 * 60 * 1000;
+  let activePlayer = 1;
+  let gameActive = false;
+  let gameOverFlag = false;
+  let countUpMode = false;
+  let incrementPerMoveSec = 0;
+  let incrementEnabled = false;
+  let intervalId = null;
+  let initialTimeMs = 10 * 60 * 1000;
+
+  // DOM
+  const timer1El = document.getElementById("timer1");
+  const timer2El = document.getElementById("timer2");
+  const player1Area = document.getElementById("player1Area");
+  const player2Area = document.getElementById("player2Area");
+  const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const applyBtn = document.getElementById("applySettingsBtn");
+  const zeroCheck = document.getElementById("zeroStartCheck");
+  const incEnable = document.getElementById("incEnable");
+  const incSeconds = document.getElementById("incSeconds");
+  const customMinutes = document.getElementById("customMinutes");
+  const presetBtns = document.querySelectorAll(".preset-btn");
+  const themeToggle = document.getElementById("themeToggle");
+  const navBtns = document.querySelectorAll(".nav-btn");
+  const gameView = document.getElementById("gameView");
+  const historyViewDiv = document.getElementById("historyView");
+  const historyListDiv = document.getElementById("historyList");
+  const sortSelect = document.getElementById("sortHistory");
+  const appDiv = document.getElementById("app");
+
+  let currentPreset = "10";
+
+  function formatTime(ms) {
+    if (ms < 0) ms = 0;
+    const totalSec = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+  }
+
+  function updateDisplay() {
+    timer1El.innerText = formatTime(player1TimeMs);
+    timer2El.innerText = formatTime(player2TimeMs);
+    if (gameActive && !gameOverFlag) {
+      if (activePlayer === 1) player1Area.classList.add("active-glow");
+      else player1Area.classList.remove("active-glow");
+      if (activePlayer === 2) player2Area.classList.add("active-glow");
+      else player2Area.classList.remove("active-glow");
+    } else {
+      player1Area.classList.remove("active-glow");
+      player2Area.classList.remove("active-glow");
+    }
+  }
+
+  function tick() {
+    if (!gameActive || gameOverFlag) return;
+    if (countUpMode) {
+      if (activePlayer === 1) player1TimeMs += 1000;
+      else player2TimeMs += 1000;
+      updateDisplay();
+      return;
+    }
+    if (activePlayer === 1) {
+      if (player1TimeMs <= 0) { endGameDueTimeout(1); return; }
+      player1TimeMs = Math.max(0, player1TimeMs - 1000);
+    } else {
+      if (player2TimeMs <= 0) { endGameDueTimeout(2); return; }
+      player2TimeMs = Math.max(0, player2TimeMs - 1000);
+    }
+    updateDisplay();
+    if ((activePlayer === 1 && player1TimeMs <= 0) || (activePlayer === 2 && player2TimeMs <= 0))
+      endGameDueTimeout(activePlayer);
+  }
+
+  function startTimerInterval() {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(tick, 1000);
+  }
+
+  function switchTurn() {
+    if (!gameActive || gameOverFlag) return false;
+    if (!countUpMode && incrementEnabled && incrementPerMoveSec > 0) {
+      if (activePlayer === 1) player1TimeMs += incrementPerMoveSec * 1000;
+      else player2TimeMs += incrementPerMoveSec * 1000;
+      updateDisplay();
+    }
+    activePlayer = activePlayer === 1 ? 2 : 1;
+    updateDisplay();
+    return true;
+  }
+
+  function onTimerTap(player) {
+    if (!gameActive || gameOverFlag) return;
+    if (player === activePlayer) switchTurn();
+  }
+
+  async function endGameDueTimeout(losingPlayer) {
+    if (gameOverFlag) return;
+    gameActive = false;
+    gameOverFlag = true;
+    if (intervalId) clearInterval(intervalId);
+    intervalId = null;
+    updateDisplay();
+    const winner = losingPlayer === 1 ? 2 : 1;
+    try { navigator.vibrate?.(500); } catch(e) {}
+    alert(`⏰ Time's up! Player ${winner} wins!`);
+
+    const usedP1 = countUpMode ? player1TimeMs : (initialTimeMs - player1TimeMs);
+    const usedP2 = countUpMode ? player2TimeMs : (initialTimeMs - player2TimeMs);
+    const record = {
+      date: new Date().toISOString(),
+      player1TimeUsedSec: Math.floor(Math.max(0, usedP1) / 1000),
+      player2TimeUsedSec: Math.floor(Math.max(0, usedP2) / 1000),
+      winner: `Player ${winner}`,
+      initialControl: countUpMode ? "Count-up (zero)" : `${initialTimeMs/60000} min`,
+      incrementUsed: incrementEnabled ? `${incrementPerMoveSec}s` : "none"
+    };
+    await saveGameRecord(record);
+    if (historyViewDiv.classList.contains("active")) renderHistory();
+    // Remove game-active class to show controls again
+    appDiv.classList.remove("game-active");
+  }
+
+  function applyGameSettings() {
+    const isZero = zeroCheck.checked;
+    countUpMode = isZero;
+    let selectedMinutes = parseInt(customMinutes.value);
+    if (!isZero && (isNaN(selectedMinutes) || selectedMinutes <= 0)) selectedMinutes = 1;
+    initialTimeMs = isZero ? 0 : selectedMinutes * 60 * 1000;
+    incrementEnabled = incEnable.checked && !isZero;
+    incrementPerMoveSec = incrementEnabled ? (parseInt(incSeconds.value) || 0) : 0;
+    if (isZero) { player1TimeMs = 0; player2TimeMs = 0; }
+    else { player1TimeMs = initialTimeMs; player2TimeMs = initialTimeMs; }
+    gameActive = false;
+    gameOverFlag = false;
+    activePlayer = 1;
+    if (intervalId) clearInterval(intervalId);
+    intervalId = null;
+    updateDisplay();
+    saveSettings({
+      preset: currentPreset,
+      customMin: selectedMinutes,
+      zeroStart: isZero,
+      incEnabled: incrementEnabled,
+      incSec: incrementPerMoveSec,
+      theme: document.body.classList.contains("light") ? "light" : "dark"
+    });
+  }
+
+  function startGame() {
+    if (gameOverFlag) resetGame();
+    if (!gameActive && !gameOverFlag) {
+      gameActive = true;
+      startTimerInterval();
+      updateDisplay();
+      // Hide header, setup panel, controls
+      appDiv.classList.add("game-active");
+    }
+  }
+
+  function pauseGame() {
+    if (gameActive && !gameOverFlag) {
+      gameActive = false;
+      if (intervalId) clearInterval(intervalId);
+      intervalId = null;
+      updateDisplay();
+      // Show controls again
+      appDiv.classList.remove("game-active");
+    }
+  }
+
+  function resetGame() {
+    if (intervalId) clearInterval(intervalId);
+    gameActive = false;
+    gameOverFlag = false;
+    activePlayer = 1;
+    if (countUpMode) { player1TimeMs = 0; player2TimeMs = 0; }
+    else { player1TimeMs = initialTimeMs; player2TimeMs = initialTimeMs; }
+    updateDisplay();
+    appDiv.classList.remove("game-active");
+  }
+
+  // Long press to pause (when game is active and controls hidden)
+  function attachLongPress(el, callback) {
+    let timer;
+    const start = (e) => {
+      timer = setTimeout(() => { callback(); }, 600);
+    };
+    const clear = () => clearTimeout(timer);
+    el.addEventListener("touchstart", start);
+    el.addEventListener("touchend", clear);
+    el.addEventListener("touchcancel", clear);
+    el.addEventListener("mousedown", start);
+    el.addEventListener("mouseup", clear);
+  }
+
+  // History rendering
+  async function renderHistory() {
+    let games = await getAllGames();
+    const sort = sortSelect.value;
+    if (sort === "date_desc") games.sort((a,b) => new Date(b.date) - new Date(a.date));
+    else if (sort === "date_asc") games.sort((a,b) => new Date(a.date) - new Date(b.date));
+    else if (sort === "time_used") games.sort((a,b) => (a.player1TimeUsedSec + a.player2TimeUsedSec) - (b.player1TimeUsedSec + b.player2TimeUsedSec));
+    if (!games.length) {
+      historyListDiv.innerHTML = `<div class="empty-history">No games recorded yet.<br>Finish a match to save.</div>`;
+      return;
+    }
+    let html = "";
+    for (let g of games) {
+      const dateObj = new Date(g.date);
+      html += `
+        <div class="history-card">
+          <div><strong>${dateObj.toLocaleString()}</strong><br>
+          <span>⚫ ${g.player1TimeUsedSec}s &nbsp; ⚪ ${g.player2TimeUsedSec}s</span></div>
+          <div><span class="winner-badge">🏆 ${g.winner}</span><br>
+          <small>${g.initialControl} | inc: ${g.incrementUsed}</small></div>
+        </div>
+      `;
+    }
+    historyListDiv.innerHTML = html;
+  }
+
+  // Theme
+  function initTheme() {
+    const settings = loadSettings();
+    if (settings.theme === "light") {
+      document.body.classList.add("light");
+      themeToggle.innerText = "☀️";
+    } else {
+      document.body.classList.remove("light");
+      themeToggle.innerText = "🌙";
+    }
+  }
+  function toggleTheme() {
+    document.body.classList.toggle("light");
+    const isLight = document.body.classList.contains("light");
+    themeToggle.innerText = isLight ? "☀️" : "🌙";
+    const settings = loadSettings();
+    settings.theme = isLight ? "light" : "dark";
+    saveSettings(settings);
+  }
+
+  function highlightPreset(min) {
+    presetBtns.forEach(btn => {
+      if (btn.getAttribute("data-preset") === min.toString()) {
+        btn.classList.add("active-preset");
+        currentPreset = min.toString();
+      } else btn.classList.remove("active-preset");
+    });
+  }
+
+  function loadStoredSettings() {
+    const stored = loadSettings();
+    currentPreset = stored.preset;
+    customMinutes.value = stored.customMin;
+    zeroCheck.checked = stored.zeroStart;
+    incEnable.checked = stored.incEnabled;
+    incSeconds.value = stored.incSec;
+    highlightPreset(parseInt(stored.preset));
+    if (stored.zeroStart) presetBtns.forEach(btn => btn.classList.remove("active-preset"));
+    applyGameSettings();
+  }
+
+  // Navigation
+  function bindEvents() {
+    player1Area.addEventListener("click", () => onTimerTap(1));
+    player2Area.addEventListener("click", () => onTimerTap(2));
+    startBtn.addEventListener("click", startGame);
+    pauseBtn.addEventListener("click", pauseGame);
+    resetBtn.addEventListener("click", resetGame);
+    applyBtn.addEventListener("click", applyGameSettings);
+    presetBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mins = parseInt(btn.getAttribute("data-preset"));
+        if (!isNaN(mins)) {
+          customMinutes.value = mins;
+          highlightPreset(mins);
+          zeroCheck.checked = false;
+        }
+      });
+    });
+    zeroCheck.addEventListener("change", (e) => {
+      if (e.target.checked) presetBtns.forEach(btn => btn.classList.remove("active-preset"));
+    });
+    sortSelect.addEventListener("change", renderHistory);
+    themeToggle.addEventListener("click", toggleTheme);
+    navBtns.forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const view = btn.getAttribute("data-view");
+        if (view === "game") {
+          gameView.classList.add("active");
+          historyViewDiv.classList.remove("active");
+          appDiv.classList.remove("game-active"); // ensure controls visible
+        } else {
+          gameView.classList.remove("active");
+          historyViewDiv.classList.add("active");
+          await renderHistory();
+        }
+        navBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+    // Long press on timer halves to pause game (when active)
+    attachLongPress(player1Area, () => { if (gameActive && !gameOverFlag) pauseGame(); });
+    attachLongPress(player2Area, () => { if (gameActive && !gameOverFlag) pauseGame(); });
+  }
+
+  // Service Worker registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn("SW error:", err));
+  }
+
+  async function init() {
+    await openDB();
+    initTheme();
+    bindEvents();
+    loadStoredSettings();
+    updateDisplay();
+  }
+  init();
+</script>
+</body>
+</html>
