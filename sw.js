@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chess-timer-v1';
+const CACHE_NAME = 'chess-timer-v1.1';
 const urlsToCache = [
   './',
   './index.html',

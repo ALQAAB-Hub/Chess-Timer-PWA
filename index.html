@@ -30,7 +30,7 @@
       font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg-dark);
       color: var(--text);
-      height: 100vh;
+      height: 100dvh;           /* dynamic viewport height */
       overflow: hidden;
       transition: background 0.2s;
     }
@@ -46,7 +46,7 @@
     .app {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
     }
 
@@ -171,16 +171,13 @@
     .ctrl-btn.start { background: var(--success); color: white; }
     .ctrl-btn.reset { background: var(--danger); color: white; }
 
-    /* TIMER CONTAINER – takes all remaining space when controls hidden */
+    /* TIMER CONTAINER – takes all remaining space */
     .timers-container {
       flex: 1;
       display: flex;
       flex-direction: column;
       background: var(--bg-dark);
-    }
-    /* When game active, the container expands to full height because siblings are hidden */
-    .game-active .timers-container {
-      flex: 1;
+      padding-bottom: env(safe-area-inset-bottom); /* avoid bottom nav overlap */
     }
 
     .timer-half {
@@ -509,7 +506,6 @@
     };
     await saveGameRecord(record);
     if (historyViewDiv.classList.contains("active")) renderHistory();
-    // Remove game-active class to show controls again
     appDiv.classList.remove("game-active");
   }
 
@@ -545,7 +541,6 @@
       gameActive = true;
       startTimerInterval();
       updateDisplay();
-      // Hide header, setup panel, controls
       appDiv.classList.add("game-active");
     }
   }
@@ -556,7 +551,6 @@
       if (intervalId) clearInterval(intervalId);
       intervalId = null;
       updateDisplay();
-      // Show controls again
       appDiv.classList.remove("game-active");
     }
   }
@@ -572,7 +566,7 @@
     appDiv.classList.remove("game-active");
   }
 
-  // Long press to pause (when game is active and controls hidden)
+  // Long press to pause
   function attachLongPress(el, callback) {
     let timer;
     const start = (e) => {
@@ -682,7 +676,7 @@
         if (view === "game") {
           gameView.classList.add("active");
           historyViewDiv.classList.remove("active");
-          appDiv.classList.remove("game-active"); // ensure controls visible
+          appDiv.classList.remove("game-active");
         } else {
           gameView.classList.remove("active");
           historyViewDiv.classList.add("active");
@@ -692,12 +686,11 @@
         btn.classList.add("active");
       });
     });
-    // Long press on timer halves to pause game (when active)
     attachLongPress(player1Area, () => { if (gameActive && !gameOverFlag) pauseGame(); });
     attachLongPress(player2Area, () => { if (gameActive && !gameOverFlag) pauseGame(); });
   }
 
-  // Service Worker registration
+  // Service Worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(err => console.warn("SW error:", err));
   }
